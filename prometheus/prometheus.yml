@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s   # default interval
+
+scrape_configs:
+  # Scrape chính prometheus để check
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape Airflow metrics (qua statsd-exporter)
+  - job_name: 'airflow'
+    static_configs:
+      - targets: ['statsd-exporter:9102']
+
+  # Scrape ClickHouse
+  - job_name: 'clickhouse'
+    static_configs:
+      - targets: ['clickhouse-server:9363']
+
+  # Scrape Spark
+  - job_name: 'spark'
+    metrics_path: /metrics/prometheus
+    static_configs:
+      - targets:
+          - 'spark-master:8080'
+          - 'spark-worker:8081'
+
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']

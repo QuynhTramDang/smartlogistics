@@ -1,0 +1,28 @@
+{
+  "BATCH_SIZE": 50,
+  "S3_BUCKET": "smart-logistics",
+  "POSTGRES_CONN_ID": "pg_airflow",
+  "AWS_CONN_ID": "minio_default",
+
+  "warehouse_order": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata4/sap/api_warehouse_order_task_2/srvd_a2x/sap/warehouseorder/0001/WarehouseOrder",
+    "table_name": "warehouse_order_metadata",
+    "prefix": "warehouse_order",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate",
+      "DataServiceVersion": "2.0"
+    }
+  },
+
+  "warehouse_task": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata4/sap/api_warehouse_order_task_2/srvd_a2x/sap/warehouseorder/0001/WarehouseTask",
+    "table_name": "warehouse_task_metadata",
+    "prefix": "warehouse_task",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate",
+      "DataServiceVersion": "2.0"
+    }
+  }
+}

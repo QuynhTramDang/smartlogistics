@@ -1,0 +1,38 @@
+# dockerfile/Dockerfile.spark
+FROM bitnami/spark:3.4.1
+
+USER root
+
+# Base tools + Python 3.12
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl unzip zip build-essential wget \
+    libssl-dev zlib1g-dev libbz2-dev libreadline-dev \
+    libsqlite3-dev libncursesw5-dev xz-utils tk-dev \
+    libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+ARG PYTHON_VERSION=3.12.5
+COPY dockerfile/Python-${PYTHON_VERSION}.tgz /tmp/Python-${PYTHON_VERSION}.tgz
+RUN cd /tmp && tar xzf Python-${PYTHON_VERSION}.tgz && cd Python-${PYTHON_VERSION} && \
+    ./configure --enable-optimizations && make -j"$(nproc)" && make altinstall && \
+    rm -rf /tmp/Python-${PYTHON_VERSION}*
+
+COPY dockerfile/requirements-spark.txt /tmp/requirements.txt
+RUN python3.12 -m ensurepip && \
+    python3.12 -m pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    python3.12 -m pip install --no-cache-dir -r /tmp/requirements.txt || true
+
+# MinIO client
+RUN curl -L -o /usr/local/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc && chmod +x /usr/local/bin/mc
+
+# === JARs: dùng chung /opt/jars, và link sang spark/jars ===
+RUN mkdir -p /opt/jars /opt/bitnami/spark/jars
+COPY jars/*.jar /opt/jars/
+RUN for f in /opt/jars/*.jar; do ln -sf "$f" /opt/bitnami/spark/jars/$(basename "$f"); done
+
+# Classpath + Python
+ENV SPARK_CLASSPATH="/opt/jars/*"
+ENV PYSPARK_PYTHON=/usr/local/bin/python3.12
+ENV PYSPARK_DRIVER_PYTHON=/usr/local/bin/python3.12
+
+USER 1001

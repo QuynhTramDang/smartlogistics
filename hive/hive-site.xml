@@ -1,0 +1,103 @@
+<configuration>
+  <!-- Metastore DB -->
+  <property>
+    <name>javax.jdo.option.ConnectionURL</name>
+    <value>jdbc:postgresql://metastore-db:5432/hive</value>
+  </property>
+  <property>
+    <name>javax.jdo.option.ConnectionDriverName</name>
+    <value>org.postgresql.Driver</value>
+  </property>
+  <property>
+    <name>javax.jdo.option.ConnectionUserName</name>
+    <value>hive</value>
+  </property>
+  <property>
+    <name>javax.jdo.option.ConnectionPassword</name>
+    <value>hive</value>
+  </property>
+
+  <!-- Metastore URI -->
+  <property>
+    <name>hive.metastore.uris</name>
+    <value>thrift://delta-metastore:9083</value>
+  </property>
+
+  <!-- Warehouse dir in S3 -->
+  <property>
+    <name>hive.metastore.warehouse.dir</name>
+    <value>s3a://smart-logistics/warehouse</value>
+  </property>
+
+  <!-- Use MinIO via S3A -->
+  <property>
+    <name>fs.s3a.endpoint</name>
+    <value>http://minio:9000</value>
+  </property>
+  <property>
+    <name>fs.s3a.access.key</name>
+    <value>minioadmin</value>
+  </property>
+  <property>
+    <name>fs.s3a.secret.key</name>
+    <value>minioadmin</value>
+  </property>
+  <property>
+    <name>fs.s3a.path.style.access</name>
+    <value>true</value>
+  </property>
+
+  <!-- Tắt schema auto create -->
+  <property>
+    <name>datanucleus.autoCreateSchema</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>datanucleus.fixedDatastore</name>
+    <value>true</value>
+  </property>
+  <property>
+    <name>datanucleus.autoCreateTables</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>datanucleus.schema.autoCreateAll</name>
+    <value>false</value>
+  </property>
+  <property>
+    <name>hive.metastore.schema.verification</name>
+    <value>true</value>
+  </property>
+
+  <!-- UGI -->
+  <property>
+    <name>hive.metastore.execute.setugi</name>
+    <value>true</value>
+  </property>
+
+  <!-- ✅ Fix lỗi HDFS không tồn tại -->
+  <property>
+    <name>hive.exec.local.scratchdir</name>
+    <value>/tmp/hive/local</value>
+  </property>
+  <property>
+    <name>hive.downloaded.resources.dir</name>
+    <value>/tmp/hive/resources</value>
+  </property>
+  <property>
+    <name>hive.querylog.location</name>
+    <value>/tmp/hive/logs</value>
+  </property>
+  <property>
+    <name>hive.exec.scratchdir</name>
+    <value>/tmp/hive/scratch</value>
+  </property>
+  <property>
+    <name>hive.exec.stagingdir</name>
+    <value>/tmp/hive/staging</value>
+  </property>
+  <property>
+    <name>fs.defaultFS</name>
+    <value>s3a://smart-logistics</value>
+  </property>
+</configuration>

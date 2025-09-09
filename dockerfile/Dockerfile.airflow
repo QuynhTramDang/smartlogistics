@@ -1,0 +1,97 @@
+# dockerfile/Dockerfile.airflow
+FROM apache/airflow:2.9.3
+
+USER root
+
+# ---- base system deps ----
+
+RUN apt-get update && \
+    apt-get install -y openjdk-17-jdk wget curl unzip zip ca-certificates \
+    build-essential libssl-dev zlib1g-dev libbz2-dev \
+    libreadline-dev libsqlite3-dev libncursesw5-dev \
+    xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev \
+    liblzma-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Java
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ENV PATH=$JAVA_HOME/bin:$PATH
+
+# -------------------------------
+# Build & install Python 3.12 (from local tarball)
+# -------------------------------
+ARG PYTHON_VERSION=3.12.5
+COPY dockerfile/Python-${PYTHON_VERSION}.tgz /tmp/Python-${PYTHON_VERSION}.tgz
+
+RUN cd /tmp && \
+    tar xzf Python-${PYTHON_VERSION}.tgz && \
+    cd Python-${PYTHON_VERSION} && \
+    ./configure --enable-optimizations && \
+    make -j$(nproc) && \
+    make altinstall && \
+    rm -rf /tmp/Python-${PYTHON_VERSION}* /tmp/Python-${PYTHON_VERSION}.tgz
+
+# Ensure pip is present & up-to-date for python3.12
+RUN python3.12 -m ensurepip && \
+    python3.12 -m pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# -------------------------------
+# Copy requirements & install Python deps
+# (requirements-airflow.txt should live in dockerfile/)
+# -------------------------------
+COPY dockerfile/requirements-airflow.txt /tmp/requirements-airflow.txt
+
+RUN python3.12 -m pip install --no-cache-dir -r /tmp/requirements-airflow.txt
+
+# -------------------------------
+# Install Airflow providers (compatible with Airflow 2.10.x)
+# - Spark provider pinned to 5.3.2 (requires Airflow >= 2.10)
+# - Livy provider pinned (keep as you used)
+# -------------------------------
+
+
+# -------------------------------
+# MinIO client
+# -------------------------------
+RUN curl -L -o /usr/local/bin/mc https://dl.min.io/client/mc/release/linux-amd64/mc && \
+    chmod +x /usr/local/bin/mc
+
+# -------------------------------
+# jars folder (runtime mount target) and clickhouse fallback
+# -------------------------------
+# -------------------------------
+# jars folder (runtime mount target) and clickhouse fallback
+# -------------------------------
+RUN mkdir -p /opt/jars && chown -R airflow: /opt/jars
+
+# Copy clickhouse-jdbc.jar vào thư mục /opt/jars/
+COPY jars/clickhouse-jdbc-0.6.3-all.jar /opt/jars/clickhouse-jdbc-0.6.3-all.jar
+
+
+# -------------------------------
+# Spark binary (copy from local tarball) and spark jars
+# -------------------------------
+ARG SPARK_VERSION=3.4.1
+COPY dockerfile/spark-${SPARK_VERSION}-bin-hadoop3.tgz /tmp/spark.tgz
+
+RUN tar -xzf /tmp/spark.tgz -C /opt && \
+    mv /opt/spark-${SPARK_VERSION}-bin-hadoop3 /opt/spark && \
+    rm /tmp/spark.tgz
+
+# Copy any pre-downloaded jars from project/jars into spark jars dir
+RUN mkdir -p /opt/spark/jars
+COPY jars/*.jar /opt/spark/jars/
+
+# Ensure spark and jars ownership
+RUN chown -R airflow: /opt/spark /opt/jars
+
+# -------------------------------
+# Final environment for airflow user
+# -------------------------------
+USER airflow
+
+ENV SPARK_HOME=/opt/spark
+ENV PATH=$PATH:/opt/spark/bin
+ENV PYTHONPATH="/opt/airflow/jobs:/opt/airflow/dags"
+ENV PYSPARK_PYTHON=/usr/local/bin/python3.12
+ENV PYSPARK_DRIVER_PYTHON=/usr/local/bin/python3.12

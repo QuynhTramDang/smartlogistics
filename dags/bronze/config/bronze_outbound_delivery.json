@@ -1,0 +1,46 @@
+{
+  "BATCH_SIZE": 50,
+  "S3_BUCKET": "smart-logistics",
+  "POSTGRES_CONN_ID": "pg_airflow",
+  "AWS_CONN_ID": "minio_default",
+
+  "outbound_delivery_header": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryHeader",
+    "table_name": "outbound_delivery_header_metadata",
+    "prefix": "outbound_delivery_header",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  },
+
+  "outbound_delivery_item": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryItem",
+    "table_name": "outbound_delivery_item_metadata",
+    "prefix": "outbound_delivery_item",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  },
+
+  "outbound_delivery_partner": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryPartner",
+    "table_name": "outbound_delivery_partner_metadata",
+    "prefix": "outbound_delivery_partner",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  },
+
+  "outbound_delivery_address": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_OUTBOUND_DELIVERY_SRV;v=0002/A_OutbDeliveryAddress2",
+    "table_name": "outbound_delivery_address_metadata",
+    "prefix": "outbound_delivery_address",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  }
+}

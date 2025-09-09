@@ -1,0 +1,66 @@
+{
+  "BATCH_SIZE": 50,
+  "S3_BUCKET": "smart-logistics",
+  "POSTGRES_CONN_ID": "pg_airflow",
+  "AWS_CONN_ID": "minio_default",
+
+  "sales_order": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrder?$inlinecount=allpages",
+    "table_name": "sales_order_metadata",
+    "prefix": "sales_order",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  },
+
+  "sales_order_item": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrderItem?$inlinecount=allpages",
+    "table_name": "sales_order_item_metadata",
+    "prefix": "sales_order_item",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  },
+
+  "sales_order_partner": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrderHeaderPartner?$inlinecount=allpages",
+    "table_name": "sales_order_partner_metadata",
+    "prefix": "sales_order_partner",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  },
+
+  "sales_order_scheduleline": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrderScheduleLine?$inlinecount=allpages",
+    "table_name": "sales_order_scheduleline_metadata",
+    "prefix": "sales_order_scheduleline",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  },
+
+  "sales_order_pricing_element": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrderItemPrElement?$inlinecount=allpages",
+    "table_name": "sales_order_pricing_element_metadata",
+    "prefix": "sales_order_pricing_element",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  },
+
+  "sales_order_subsequent_proc_flow": {
+    "api_url": "https://sandbox.api.sap.com/s4hanacloud/sap/opu/odata/sap/API_SALES_ORDER_SRV/A_SalesOrderItmSubsqntProcFlow?$inlinecount=allpages",
+    "table_name": "sales_order_subsequent_proc_flow_metadata",
+    "prefix": "sales_order_subsequent_proc_flow",
+    "headers": {
+      "Accept": "application/json",
+      "Accept-Encoding": "gzip, deflate"
+    }
+  }
+}

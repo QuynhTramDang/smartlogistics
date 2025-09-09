@@ -1,0 +1,663 @@
+
+x-default-logging: &default-logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+networks:
+  smartlogistics_net:
+    driver: bridge
+
+volumes:
+  zookeeper-data:
+  kafka-data:
+  schema-registry-data:
+  minio-data:
+  staging-db-data:
+  metastore-db-data:
+  airflow-db-data:
+  clickhouse-data:
+  metabase-db-data:
+  prometheus-data:
+  grafana-data:
+  trino-data:
+  osrm-data:
+
+
+services:
+  # ---------- Ingestion Layer ----------
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper-data:/var/lib/zookeeper/data
+    healthcheck:
+      test: ["CMD", "echo", "srvr", "|", "nc", "-w", "2", "localhost", "2181"]
+      interval: 10s
+      retries: 5
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: kafka-broker
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'ping' | kafka-console-producer --broker-list localhost:9092 --topic healthcheck && kafka-console-consumer --bootstrap-server localhost:9092 --topic healthcheck --from-beginning --timeout-ms 1000"]
+      interval: 20s
+      retries: 5
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.4.0
+    container_name: schema-registry
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    ports:
+      - "18081:8081"
+    volumes:
+      - schema-registry-data:/var/lib/schema-registry
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8081/subjects"]
+      interval: 15s
+      retries: 5
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  debezium-connect:
+    image: debezium/connect:2.4
+    container_name: debezium-connect
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+    environment:
+      BOOTSTRAP_SERVERS: kafka:9092
+      GROUP_ID: debezium-group
+      CONFIG_STORAGE_TOPIC: debezium_config
+      OFFSET_STORAGE_TOPIC: debezium_offset
+      STATUS_STORAGE_TOPIC: debezium_status
+      KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8083/connectors"]
+      interval: 15s
+      retries: 5
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  debezium-ui:
+    image: debezium/debezium-ui:2.2
+    container_name: debezium-ui
+    depends_on:
+      debezium-connect:
+        condition: service_healthy
+    environment:
+      KAFKA_CONNECT_URIS: http://debezium-connect:8083
+    ports:
+      - "8080:8080"
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  # ---------- Storage Layer (Delta Lake) ----------
+  minio:
+    image: minio/minio:RELEASE.2025-06-13T11-33-47Z-cpuv1
+    container_name: minio
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ls", "localhost:9000"]
+      interval: 20s
+      retries: 3
+    env_file:
+      - .env
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  postgres-staging:
+    image: postgres:14
+    container_name: postgres-staging
+    environment:
+      POSTGRES_USER: staging
+      POSTGRES_PASSWORD: staging
+      POSTGRES_DB: staging
+    volumes:
+      - staging-db-data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"          # tránh xung port với các Postgres khác
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "staging"]
+      interval: 10s
+      retries: 5
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+
+  metastore-db:
+    image: postgres:14
+    container_name: metastore-db
+    environment:
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+      POSTGRES_DB: hive
+    volumes:
+      - metastore-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "hive"]
+      interval: 10s
+      retries: 5
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  delta-metastore:
+    image: hive-metastore
+    container_name: delta-metastore
+    depends_on:
+      metastore-db:
+        condition: service_healthy
+    volumes:
+       - ./hive/tmp:/tmp/hive
+    ports:
+      - "9083:9083"
+    networks:
+      - smartlogistics_net
+   
+
+
+
+
+  # ---------- Processing Layer ----------
+  spark-master:
+    build:
+      context: .
+      dockerfile: dockerfile/Dockerfile.spark
+    image: custom-spark:3.4.1
+    container_name: spark-master
+    environment:
+      SPARK_MODE: master
+      SPARK_SQL_EXTENSIONS: io.delta.sql.DeltaSparkSessionExtension
+      SPARK_SQL_CATALOG_SPARK_CATALOG: org.apache.spark.sql.delta.catalog.DeltaCatalog
+      HIVE_METASTORE_URIS: thrift://delta-metastore:9083
+      SPARK_DRIVER_MEMORY: 2g
+      SPARK_EXECUTOR_MEMORY: 4g
+      SPARK_EXECUTOR_CORES: 2
+    ports:
+      - "7077:7077"
+      - "8088:8080"
+    volumes:
+      - ./jobs:/opt/airflow/jobs 
+      - ./mnt/delta:/mnt/delta
+      - ./hive/tmp:/tmp/hive
+      - ./venv:/home/airflow/venv:ro
+      - ./jars:/opt/jars
+      - ./spark/conf:/opt/bitnami/spark/conf
+
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  spark-worker:
+    build:
+      context: .
+      dockerfile: dockerfile/Dockerfile.spark
+    image: custom-spark:3.4.1
+    container_name: spark-worker
+    depends_on:
+      spark-master:
+        condition: service_started
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      HIVE_METASTORE_URIS: thrift://delta-metastore:9083
+      SPARK_DRIVER_MEMORY: 2g
+      SPARK_EXECUTOR_MEMORY: 4g
+      SPARK_EXECUTOR_CORES: 2
+    volumes:
+      - ./jobs:/opt/airflow/jobs 
+      - ./mnt/delta:/mnt/delta
+      - ./hive/tmp:/tmp/hive
+      - ./venv:/home/airflow/venv:ro
+      - ./jars:/opt/jars  
+      - ./spark/conf:/opt/bitnami/spark/conf
+
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  flink-jobmanager:
+    image: flink:1.16-scala_2.12
+    container_name: flink-jobmanager
+    command: jobmanager
+    environment:
+      - jobmanager.rpc.address=flink-jobmanager
+    ports:
+      - "8081:8081"
+      - "6123:6123"
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  flink-taskmanager:
+    image: flink:1.16-scala_2.12
+    container_name: flink-taskmanager
+    depends_on:
+      flink-jobmanager:
+        condition: service_started
+    command: taskmanager
+    environment:
+      - jobmanager.rpc.address=flink-jobmanager
+      - taskmanager.numberOfTaskSlots=2
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: dockerfile/Dockerfile.airflow
+
+    image: custom-airflow:2.9.3
+    container_name: airflow-webserver
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__SCHEDULER__STATSD_ON: True
+      AIRFLOW__SCHEDULER__STATSD_HOST: statsd-exporter
+      AIRFLOW__CORE__DAG_DIR_LIST_INTERVAL: 5
+      AIRFLOW__WEBSERVER__WORKERS: 4             # Số worker Gunicorn (mặc định 4)
+      AIRFLOW__WEBSERVER__WORKER_REFRESH_BATCHES: 0
+      AIRFLOW__WEBSERVER__WORKER_TIMEOUT: 120   
+      AIRFLOW__LOGGING__LOGGING_LEVEL: INFO
+    ports:
+      - "8082:8080"
+    command: webserver
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./jobs:/opt/airflow/jobs 
+      - ./mnt/delta:/mnt/delta
+      - ./jars:/opt/jars  
+    networks:
+      - smartlogistics_net
+    env_file:
+      - .env
+    <<: *default-logging
+
+  airflow-scheduler:
+    <<: *default-logging
+    build:
+      context: .
+      dockerfile: dockerfile/Dockerfile.airflow
+    image: custom-airflow:2.9.3
+    container_name: airflow-scheduler
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__SCHEDULER__STATSD_ON: True
+      AIRFLOW__SCHEDULER__STATSD_HOST: statsd-exporter
+      AIRFLOW__CORE__DAG_DIR_LIST_INTERVAL: 5
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+    command: scheduler
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./jobs:/opt/airflow/jobs 
+      - ./mnt/delta:/mnt/delta
+      - ./jars:/opt/jars  
+    env_file:
+      - .env
+    networks:
+      - smartlogistics_net
+ 
+
+
+  airflow-worker:
+    build:
+      context: .
+      dockerfile: dockerfile/Dockerfile.airflow
+
+    image: custom-airflow:2.9.3
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CORE__DAG_DIR_LIST_INTERVAL: 5
+    command: celery worker
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ./plugins:/opt/airflow/plugins
+      - ./jobs:/opt/airflow/jobs 
+      - ./mnt/delta:/mnt/delta
+      - ./jars:/opt/jars  
+    env_file:
+      - .env
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  airflow-flower:
+    build:
+      context: .
+      dockerfile: dockerfile/Dockerfile.airflow
+
+    image: custom-airflow:2.9.3
+    container_name: airflow-flower
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-db:5432/airflow
+      AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+      AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@airflow-db:5432/airflow
+    command: celery flower
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+
+  airflow-db:
+    image: postgres:14
+    container_name: airflow-db
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+    ports:
+      - "5434:5432"
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  redis:
+    image: redis:7.2
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  statsd-exporter:
+    image: prom/statsd-exporter
+    container_name: statsd-exporter
+    command: "--statsd.listen-udp=:8125 --web.listen-address=:9102"
+    ports:
+      - "8125:8125/udp"
+      - "9102:9102"
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  # ---------- Serving Layer ----------
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.3
+    container_name: clickhouse-server
+    user: "101:101"    # chạy dưới user clickhouse
+    ports:
+      - "8123:8123"
+      - "9009:9009"
+      - "9363:9363" 
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./clickhouse/config/users.d:/etc/clickhouse-server/users.d:ro
+      - ./clickhouse/config/config.d:/etc/clickhouse-server/config.d:ro 
+    networks:
+      - smartlogistics_net
+    healthcheck:
+      test: ["CMD-SHELL", "echo 'SELECT 1' | clickhouse-client --host localhost"]
+      interval: 10s
+      retries: 5
+
+
+  trino:
+    image: trinodb/trino:443
+    container_name: trino-coordinator
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./trino:/etc/trino
+      - ./config/core-site.xml:/etc/trino/core-site.xml
+      - ./trino-data:/var/trino
+
+    depends_on:
+      - delta-metastore
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  metabase:
+    image: metabase/metabase:v0.54.17.1
+    container_name: metabase
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: metabase
+      MB_DB_PASS: metabase
+      MB_DB_HOST: db-metabase
+    depends_on:
+      - db-metabase
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  db-metabase:
+    image: postgres:14
+    container_name: db-metabase
+    environment:
+      POSTGRES_USER: metabase
+      POSTGRES_PASSWORD: metabase
+      POSTGRES_DB: metabase
+    volumes:
+      - metabase-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "metabase"]
+      retries: 5
+      interval: 10s
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+ # ---------- Monitoring ----------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.console.libraries=/usr/share/prometheus/console_libraries
+      - --web.console.templates=/usr/share/prometheus/consoles
+    depends_on:
+      - statsd-exporter
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+
+
+
+ # ---------- Routing: OSRM ----------
+  osrm:
+    image: osrm/osrm-backend:latest
+    container_name: osrm
+    depends_on:
+      - minio
+    volumes:
+      - ./osrm-data:/data
+    env_file:
+      - .env
+    ports:
+      - "5000:5000"
+    command: >
+      sh -c "
+        set -e
+        if [ -f /data/${OSRM_BASE}.osrm ] || [ -f /data/${OSRM_BASE}.osrm.mld ]; then
+          echo 'Starting osrm-routed (algo='${OSRM_ALGO}')...';
+          if [ \"${OSRM_ALGO}\" = \"mld\" ]; then
+            exec osrm-routed --algorithm mld /data/${OSRM_BASE}.osrm
+          else
+            exec osrm-routed /data/${OSRM_BASE}.osrm
+          fi
+        else
+          echo 'No built .osrm found in /data — start osrm-prep to build or place .osrm files there.';
+          sleep 3600
+        fi
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:5000/route/v1/driving/13.388860,52.517037;13.397634,52.529407?overview=false || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+    networks:
+      - smartlogistics_net
+    <<: *default-logging
+
+
+  osrm-prep:
+    image: osrm/osrm-backend:latest
+    container_name: osrm-prep
+    volumes:
+      - ./osrm-data:/data
+    env_file:
+      - .env
+    entrypoint: ["/bin/sh", "-c"]
+    command: |
+      set -e
+      cd /data
+      if [ ! -f "$${PBF_FILE}" ]; then
+        echo "PBF file $${PBF_FILE} not found in /data. Place .pbf there and rerun osrm-prep."
+        exit 2
+      fi
+      echo "Starting extraction: $${PBF_FILE}"
+      osrm-extract -p $${PROFILE} $${PBF_FILE}
+      base="$${PBF_FILE%.osm.pbf}"
+      if [ "$${OSRM_ALGO}" = "mld" ]; then
+        echo "Partitioning for MLD..."
+        osrm-partition "$${base}.osrm"
+        echo "Customizing MLD..."
+        osrm-customize "$${base}.osrm"
+      else
+        echo "Building CH contraction..."
+        osrm-contract "$${base}.osrm"
+      fi
+      echo "Build complete. Built files:"
+      ls -lah "$${base}"*
+      echo "You can now start service 'osrm' (docker compose up -d osrm)"
+      exit 0
+    networks:
+      - smartlogistics_net
+    <<: *default-logging

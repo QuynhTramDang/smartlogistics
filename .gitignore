@@ -1,0 +1,11 @@
+dockerfile/spark-3.4.1-bin-hadoop3.tgz
+jars/
+logs/
+metastore_db/
+mnt/
+osrm-data/
+plugins/
+trino-data/
+venv/
+.env
+derby.log
