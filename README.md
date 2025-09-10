@@ -53,7 +53,7 @@ The **SmartLogistics** project aims to build an intelligent logistics platform t
 * **Output:**
   `routes_summary` table containing: route details, actual average travel time, ETA deviation, cost per km, delay ratio, and successful delivery frequency.
 
-### 2. Logistics Performance Analysis (KPI & Reporting)**
+### 2. Logistics Performance Analysis (KPI & Reporting)
 
 * **Business Requirement (BR):**
   Provide weekly and monthly KPIs to evaluate carrier performance and support continuous operational improvement.
@@ -97,7 +97,7 @@ The project leverages the following primary data sources. Each dataset is briefl
 
 ## C. System Architecture
 
-The Data Lakehouse architecture in this project is carefully designed to support batch data processing and seamlessly integrate multiple data sources into a unified analytics platform. The design follows the **Medallion Architecture** paradigm, organizing data into **Bronze, Silver, and Gold layers**, each serving distinct purposes in the data lifecycle.
+This project leverages a Data Lakehouse approach, adopting the Medallion Architecture (Bronze, Silver, Gold) to ensure scalable batch data processing and structured data refinement. Each layer—from raw ingestion in Bronze, to cleansed and enriched Silver, and finally optimized Gold aggregates—supports a unified and reliable analytics platform.
 
 ### 1. System Overview
 
@@ -125,7 +125,7 @@ The architecture consists of the following key components:
 
 #### **Storage Layer (Lakehouse + Metastore)**
 
-* **Delta Lake (local FS under `/mnt/delta`):** Stores Silver datasets in Delta format, supporting ACID transactions, time travel, and schema evolution.
+* **Delta Lake:** Stores Silver datasets in Delta format, supporting ACID transactions, time travel, and schema evolution.
 * **Hive Metastore:** Serves as catalog for Spark and Trino, connected via `delta-metastore` (Thrift URI).
 * **PostgreSQL:** Hosts metadata databases including `airflow-db`, `metastore-db`, `postgres-staging`, and `db-metabase`.
 
@@ -163,9 +163,6 @@ The system implements the **Medallion Architecture** with a structured processin
 
   * Pre-aggregated tables and materialized views (e.g., `routes_summary`, `kpi_logistics_monthly`) are generated to power BI and analytics.
   * Gold data is optimized for fast queries, including regional, carrier, and monthly roll-ups.
-
-Here’s a professional English rewrite of your **D. Deployment** section, tailored for your SmartLogistics project:
-
 
 ## D. Deployment
 
@@ -295,8 +292,7 @@ Here’s a professional English rewrite of your **D. Deployment** section, tailo
 * **Prometheus configuration** is located in `./prometheus`, scraping exporters such as:
 
   * `statsd-exporter`
-  * `node-exporter`
-  * Airflow exporter (if enabled)
+  * `node-exporter`..
 
 * **Grafana:** Import sample dashboards from `grafana/Dashboard`.
 
@@ -344,5 +340,6 @@ Here’s a professional English rewrite of your **D. Deployment** section, tailo
 📧 Email: [quynhtramdang.ueh@gmail.com](mailto:quynhtramdang.ueh@gmail.com)  
 🔗 LinkedIn: [linkedin.com/in/tramdang311](https://www.linkedin.com/in/tramdang311)  
 💻 GitHub: [github.com/QuynhTramDang](https://github.com/QuynhTramDang)  
+
 
 
