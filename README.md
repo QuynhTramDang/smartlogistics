@@ -33,7 +33,7 @@
 
 ## A. Project Objective
 
-The **SmartLogistics** project aims to build an intelligent logistics platform that leverages both real-time and historical data to optimize routing, reduce transportation costs, and deliver actionable KPI dashboards with drill-down capabilities across regions, carriers, and warehouses.
+The **SmartLogistics** project aims to build an intelligent logistics platform that leverages historical data to optimize routing, reduce transportation costs, and deliver actionable KPI dashboards with drill-down capabilities across regions, carriers, and warehouses.
 
 ### Key Outcomes
 
@@ -344,4 +344,5 @@ Here’s a professional English rewrite of your **D. Deployment** section, tailo
 📧 Email: [quynhtramdang.ueh@gmail.com](mailto:quynhtramdang.ueh@gmail.com)  
 🔗 LinkedIn: [linkedin.com/in/tramdang311](https://www.linkedin.com/in/tramdang311)  
 💻 GitHub: [github.com/QuynhTramDang](https://github.com/QuynhTramDang)  
+
 
