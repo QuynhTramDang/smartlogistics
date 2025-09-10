@@ -1,7 +1,4 @@
-"""
-DAG: gold_fact_shipment_trip
-Build gold.fact_shipment_trip via spark-submit (job writes only fact_shipment_trip).
-"""
+# dags/gold_fact_shipment_trip.py
 from datetime import timedelta
 from airflow import DAG
 from airflow.utils.dates import days_ago
@@ -26,7 +23,7 @@ with DAG(
     tags=["gold", "fact", "shipment"],
 ) as dag:
 
-    spark_submit_cmd = Variable.get("spark_submit_cmd", "/opt/bitnami/spark/bin/spark-submit")
+    spark_submit_cmd = Variable.get("spark_submit_cmd", "/opt/spark/bin/spark-submit")
     job_path = Variable.get("gold_fact_shipment_trip_job_path", "/opt/airflow/jobs/gold/gold_fact_shipment_trip.py")
 
     minio_endpoint = Variable.get("MINIO_ENDPOINT", "http://minio:9000")

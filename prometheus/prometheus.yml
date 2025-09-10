@@ -2,12 +2,12 @@ global:
   scrape_interval: 15s   # default interval
 
 scrape_configs:
-  # Scrape chính prometheus để check
+  # Scrape Prometheus itself
   - job_name: 'prometheus'
     static_configs:
       - targets: ['localhost:9090']
 
-  # Scrape Airflow metrics (qua statsd-exporter)
+  # Scrape Airflow metrics (via statsd-exporter)
   - job_name: 'airflow'
     static_configs:
       - targets: ['statsd-exporter:9102']

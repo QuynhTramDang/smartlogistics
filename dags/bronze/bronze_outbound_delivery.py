@@ -19,7 +19,7 @@ default_args = {
 @dag(
     dag_id='bronze_outbound_delivery',
     default_args=default_args,
-    schedule_interval='@hourly',  # chỉnh lại nếu outbound_delivery không cần chạy mỗi giờ
+    schedule_interval='@hourly', 
     start_date=days_ago(1),
     catchup=False,
     tags=['bronze', 'outbound_delivery'],

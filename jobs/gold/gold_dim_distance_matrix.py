@@ -1,12 +1,8 @@
-#!/usr/bin/env python3
+# jobs/gold/gold_osrm_distance_matrix.py
 """
 gold_osrm_distance_matrix.py
 Compute distance matrix using OSRM table API in chunked, parallel fashion from Spark executors.
 
-Improved:
- - Robust reading of dim_location: try catalog table, fallback to delta path
- - Accept S3 and metastore args and configure Spark accordingly
- - Better logs and error handling
 """
 import argparse
 import json
@@ -20,7 +16,6 @@ import time
 from pyspark.sql import SparkSession, functions as F, types as T
 from pyspark import SparkConf
 
-# requests must be available on executors
 import requests
 from requests.adapters import HTTPAdapter, Retry
 
@@ -35,7 +30,7 @@ def create_spark_session(app_name="gold_osrm_distance_matrix", metastore_uri=Non
     builder = builder.config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
                      .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
 
-    # S3A config (if provided)
+    # S3A config 
     if s3_endpoint:
         builder = builder.config("spark.hadoop.fs.s3a.endpoint", s3_endpoint) \
                          .config("spark.hadoop.fs.s3a.path.style.access", "true") \

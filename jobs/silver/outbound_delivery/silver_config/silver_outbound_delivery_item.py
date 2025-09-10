@@ -3,6 +3,7 @@
 from pyspark.sql.types import StructType, StructField, StringType, BooleanType, DoubleType, ArrayType
 from silver.common import make_raw_path, DELTA_BASE, REJECT_BASE, LOGGING_BASE, MARKER_BASE
 
+#  OUTBOUND_DELIVERY_HEADER
 OUTBOUND_DELIVERY_ITEM_CONFIG = {
     "job_name": "outbound_delivery_item",
     "raw_path": make_raw_path("outbound_delivery_item"),

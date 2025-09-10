@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#jobs/gold/gold_dim_customer.py
 """
 gold_dim_customer.py
 Build gold.dim_customer (SCD2) from:
@@ -6,11 +6,6 @@ Build gold.dim_customer (SCD2) from:
   - silver.outbound_delivery_partner
   - silver.outbound_delivery_address (for display name)
 
-This version:
- - normalizes and casts ingest timestamps to timestamp type
- - deduplicates oda (address) by address_id taking latest bp_name by ingest_timestamp
- - unions sop+odp then deduplicates by customer_id taking latest ingest_timestamp
- - final safeguard dedupe after join to ensure single row per customer_id
 """
 import argparse
 import logging
@@ -19,7 +14,7 @@ from datetime import datetime
 from pyspark.sql import SparkSession, functions as F, Window
 from pyspark.sql import types as T
 
-# helpers from your silver layer
+
 from silver_utils import init_spark, upsert_scd2_table, register_hive_table
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -52,7 +47,7 @@ def build_customer_df(spark: SparkSession, sop_path: str, odp_path: str, oda_pat
     df_odp = read_delta(spark, odp_path)
     df_oda = read_delta(spark, oda_path)
 
-    # detect only the columns you asked for
+    # Address name resolution
     cust_col_sop = pick_first_col(df_sop.columns, ["Customer", "customer", "CustomerID"])
     partnerfunc_col_sop = pick_first_col(df_sop.columns, ["PartnerFunction", "partnerfunction"])
     addrid_col_sop = pick_first_col(df_sop.columns, ["AddressID", "addressid"])
@@ -90,7 +85,7 @@ def build_customer_df(spark: SparkSession, sop_path: str, odp_path: str, oda_pat
         (F.col(ingest_col_odp).cast("timestamp") if ingest_col_odp else F.lit(None).cast("timestamp")).alias("ingest_timestamp")
     ).filter(F.col("customer_id") != "")
 
-    # Build oda name lookup (prefer BusinessPartnerName1..4 or PersonFamilyName)
+    # Build oda name lookup 
     name_candidates = []
     for cand in ["BusinessPartnerName1", "BusinessPartnerName2", "BusinessPartnerName3",
                  "BusinessPartnerName4", "PersonFamilyName", "BusinessPartnerName"]:
@@ -117,7 +112,7 @@ def build_customer_df(spark: SparkSession, sop_path: str, odp_path: str, oda_pat
                        .filter(F.col("rn_addr") == 1) \
                        .select("address_id", "bp_name")
 
-    # union partner sources; include source if you want tie-break priority later
+    # union partner sources
     union = sop_sel.unionByName(odp_sel, allowMissingColumns=True)
 
     # --- dedupe union by customer_id, keep latest ingest_timestamp ---
@@ -127,7 +122,7 @@ def build_customer_df(spark: SparkSession, sop_path: str, odp_path: str, oda_pat
     # attach address name if available (oda_dedup already has 1 row per address_id)
     joined = dedup.join(oda_dedup, on="address_id", how="left")
 
-    # final safeguard: if join created duplicates (shouldn't), dedupe again by customer_id keeping latest ingest_timestamp
+    # final safeguard dedupe by customer_id (in case both sop and odp had same customer_id with different address_id)
     final_w = Window.partitionBy("customer_id").orderBy(F.coalesce(F.col("ingest_timestamp"), DEFAULT_TS).desc())
     final = joined.withColumn("rn_final", F.row_number().over(final_w)) \
                   .filter(F.col("rn_final") == 1) \

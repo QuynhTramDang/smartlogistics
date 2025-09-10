@@ -3,7 +3,7 @@
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType, BooleanType
 from silver.common import make_raw_path, DELTA_BASE, REJECT_BASE, LOGGING_BASE, MARKER_BASE
 
-# 📦 SALES_ORDER_SCHEDULELINE 
+#  SALES_ORDER_SCHEDULELINE 
 SALES_ORDER_SCHEDULELINE_CONFIG = {
     "job_name": "sales_order_scheduleline",
     "raw_path": make_raw_path("sales_order_scheduleline"),

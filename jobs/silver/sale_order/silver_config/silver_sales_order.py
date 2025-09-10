@@ -4,7 +4,7 @@ from pyspark.sql.types import StructType, StructField, StringType, ArrayType, Bo
 from silver.common import make_raw_path, DELTA_BASE, REJECT_BASE, LOGGING_BASE, MARKER_BASE
 
 
-# 📦 SALES_ORDER HEADER (A_SalesOrder)
+#  SALES_ORDER HEADER (A_SalesOrder)
 SALES_ORDER_CONFIG = {
     "job_name": "sales_order",
     "raw_path": make_raw_path("sales_order"),

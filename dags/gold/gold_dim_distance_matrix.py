@@ -24,7 +24,7 @@ with DAG(
     tags=["gold", "osrm", "distance"],
 ) as dag:
 
-    spark_submit_cmd = Variable.get("spark_submit_cmd", default_var="/opt/bitnami/spark/bin/spark-submit")
+    spark_submit_cmd = Variable.get("spark_submit_cmd", default_var="/opt/spark/bin/spark-submit")
     job_path = Variable.get("gold_osrm_job_path", default_var="/opt/airflow/jobs/gold/gold_dim_distance_matrix.py")
 
     # MinIO / S3 variables

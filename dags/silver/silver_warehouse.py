@@ -1,10 +1,11 @@
+# dags/silver_warehouse.py
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
 import logging
 import sys
 
-# Thêm đường dẫn để airflow có thể import module
+# Add path to job scripts
 sys.path.insert(0, "/opt/airflow/jobs")
 
 from silver.warehouse.silver_run import run_silver_job
@@ -51,7 +52,7 @@ tasks = {}
 
 for cfg in ALL_SILVER_CONFIGS:
     job_name = cfg["job_name"]
-    task_id = f"silver_{job_name}"  # hoặc customize thêm nếu cần
+    task_id = f"silver_{job_name}"  
     tasks[task_id] = PythonOperator(
         task_id=task_id,
         python_callable=run_job_airflow_wrapper,
@@ -60,5 +61,4 @@ for cfg in ALL_SILVER_CONFIGS:
     )
 
 # ---------- Define execution order ----------
-# Bạn có thể định nghĩa thứ tự task cụ thể như sau:
 tasks["silver_warehouse_order"] >> tasks["silver_warehouse_task"]

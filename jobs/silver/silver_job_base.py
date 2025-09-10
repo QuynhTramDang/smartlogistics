@@ -25,7 +25,7 @@ class BaseSilverJob:
             minio_endpoint=config["minio"]["endpoint"],
             access_key=config["minio"]["access_key"],
             secret_key=config["minio"]["secret_key"],
-            metastore_uri=metastore_uri,   # <- pass metastore here
+            metastore_uri=metastore_uri,   
         )
 
         self.raw_df: DataFrame = None
@@ -34,7 +34,7 @@ class BaseSilverJob:
 
     def run(self):
         try:
-            logger.info(f"🚀 Start job: {self.job_name} | batch_id={self.batch_id}")
+            logger.info(f" Start job: {self.job_name} | batch_id={self.batch_id}")
             self.read_raw_data()
             self.flatten_raw()
             self.validate_required()
@@ -43,9 +43,9 @@ class BaseSilverJob:
             self.register_table()
             self.write_rejects()
             self.log_success()
-            logger.info(f"✅ Job complete: {self.job_name}")
+            logger.info(f" Job complete: {self.job_name}")
         except Exception as e:
-            logger.error(f"❌ Job failed: {e}", exc_info=True)
+            logger.error(f" Job failed: {e}", exc_info=True)
             try:
                 self.log_failure()
             except Exception as lf_e:
@@ -55,7 +55,7 @@ class BaseSilverJob:
             self.spark.stop()
 
     def read_raw_data(self):
-        logger.info(f"📥 Reading raw data from: {self.config['raw_path']}")
+        logger.info(f" Reading raw data from: {self.config['raw_path']}")
         self.raw_df = self.spark.read.schema(self.config["schema"]) \
             .json(self.config["raw_path"]) \
             .withColumn("filename", input_file_name())
@@ -64,9 +64,9 @@ class BaseSilverJob:
         flatten_expr = self.config.get("flatten_expr", [])
         if flatten_expr:
             self.raw_df = self.raw_df.selectExpr(flatten_expr).select("record.*")
-            logger.info(f"📄 Flattened columns: {self.raw_df.columns}")
+            logger.info(f" Flattened columns: {self.raw_df.columns}")
         else:
-            logger.warning("⚠ No flatten expression provided, skipping flatten.")
+            logger.warning(" No flatten expression provided, skipping flatten.")
 
     def validate_required(self):
         required_cols = self.config.get("required_columns", [])
@@ -77,8 +77,8 @@ class BaseSilverJob:
         )
         valid_count = self.valid_df.count()
         reject_count = self.reject_df.count()
-        logger.info(f"✅ Required validation passed: {valid_count} rows")
-        logger.info(f"❌ Rejected rows (required): {reject_count} rows")
+        logger.info(f" Required validation passed: {valid_count} rows")
+        logger.info(f" Rejected rows (required): {reject_count} rows")
 
     def apply_data_quality(self):
         dq_rules = self.config.get("data_quality_rules", {})
@@ -91,9 +91,9 @@ class BaseSilverJob:
             self.reject_df = self.reject_df.unionByName(dq_reject_df)
             valid_count = self.valid_df.count()
             dq_rejected = dq_reject_df.count()
-            logger.info(f"🧪 Data quality applied: valid={valid_count}, dq_rejected={dq_rejected}")
+            logger.info(f" Data quality applied: valid={valid_count}, dq_rejected={dq_rejected}")
         else:
-            logger.info("ℹ No data quality rules defined.")
+            logger.info("No data quality rules defined.")
 
     def register_table(self):
         register_hive_table(
@@ -138,14 +138,14 @@ class BaseSilverJob:
         except Exception as e:
             logger.error(f"Failed to write failure batch log: {e}")
 
-    # ➤ Abstract method cần override
+    #  Abstract method to be implemented by subclasses
     def write_target_table(self):
         raise NotImplementedError("Subclasses must implement write_target_table()")
 
 
 class DimSilverJob(BaseSilverJob):
     def write_target_table(self):
-        logger.info("💾 Writing to DIM (SCD2) table")
+        logger.info(" Writing to DIM (SCD2) table")
         upsert_scd2_table(
             spark=self.spark,
             df=self.valid_df,
@@ -160,7 +160,7 @@ class DimSilverJob(BaseSilverJob):
 
 class FactSilverJob(BaseSilverJob):
     def write_target_table(self):
-        logger.info("💾 Writing to FACT (append) table")
+        logger.info(" Writing to FACT (append) table")
         append_fact_table(
             df=self.valid_df,
             path=self.config["delta_path"],

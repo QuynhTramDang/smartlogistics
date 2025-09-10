@@ -1,7 +1,4 @@
-"""
-DAG: gold_dim_customer
-Run gold_dim_customer.py via spark-submit (BashOperator)
-"""
+# dags/gold_dim_customer.py
 from datetime import timedelta
 from airflow import DAG
 from airflow.utils.dates import days_ago
@@ -26,7 +23,7 @@ with DAG(
     tags=["gold", "dim", "customer"],
 ) as dag:
 
-    spark_submit_cmd = Variable.get("spark_submit_cmd", "/opt/bitnami/spark/bin/spark-submit")
+    spark_submit_cmd = Variable.get("spark_submit_cmd", "/opt/spark/bin/spark-submit")
     job_path = Variable.get("gold_dim_customer_job_path", "/opt/airflow/jobs/gold/gold_dim_customer.py")
 
     minio_endpoint = Variable.get("MINIO_ENDPOINT", "http://minio:9000")
@@ -60,7 +57,6 @@ with DAG(
         "--conf spark.sql.extensions=io.delta.sql.DeltaSparkSessionExtension "
         "--conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog "
         f"{s3_confs} "
-        # optional explicit S3A impl (harmless if already set)
         "--conf spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem "
         "--conf spark.hadoop.fs.s3a.aws.credentials.provider=org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider "
         f"{metastore_conf} "

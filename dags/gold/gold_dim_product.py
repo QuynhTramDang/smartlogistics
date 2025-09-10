@@ -1,8 +1,4 @@
-"""
-DAG: gold_dim_product
-Build gold.dim_product SCD2 from silver.sales_order_item + silver.outbound_delivery_item
-Uses spark-submit via BashOperator and passes MinIO / s3a confs.
-"""
+# dags/gold_dim_product.py
 
 from datetime import timedelta
 from airflow import DAG
@@ -27,9 +23,7 @@ with DAG(
     max_active_runs=1,
     tags=["gold", "dim", "product"],
 ) as dag:
-
-    # spark binary and job path
-    spark_submit_cmd = Variable.get("spark_submit_cmd", default_var="/opt/bitnami/spark/bin/spark-submit")
+    spark_submit_cmd = Variable.get("spark_submit_cmd", default_var="/opt/spark/bin/spark-submit")
     job_path = Variable.get("gold_dim_product_job_path", default_var="/opt/airflow/jobs/gold/gold_dim_product.py")
 
     # S3 / MinIO variables
@@ -70,7 +64,6 @@ with DAG(
         "--packages io.delta:delta-core_2.12:2.4.0 "
         f"{s3_confs} "
         f"{metastore_conf} "
-        # put py-files BEFORE the application script
         f"--py-files /opt/airflow/jobs/silver/silver_utils.py "
         f"{job_path} "
         f"--so_path {so_path} "
@@ -79,7 +72,6 @@ with DAG(
         f"--batch_id batch_{{{{ ds_nodash }}}} "
     )
 
-    # Env cho driver process (Airflow container)
     env_vars = {
         "AWS_ACCESS_KEY_ID": minio_access,
         "AWS_SECRET_ACCESS_KEY": minio_secret,

@@ -1,8 +1,8 @@
 FROM postgres:14
 
-# Copy cấu hình pg_hba.conf tạm vào thư mục init
+# Copy temporary pg_hba.conf configuration to init directory
 COPY hive_pg_hba.conf /docker-entrypoint-initdb.d/hive_pg_hba.conf
 
-# Copy init script (nếu cần thao tác gì thêm khi init)
+# Copy init script (if additional init actions are needed)
 COPY init-postgres.sh /docker-entrypoint-initdb.d/init-postgres.sh
 RUN chmod +x /docker-entrypoint-initdb.d/init-postgres.sh

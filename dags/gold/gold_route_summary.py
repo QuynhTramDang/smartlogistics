@@ -1,4 +1,4 @@
-# dags/gold_build_routes_summary.py  (final patched)
+# dags/gold_build_routes_summary.py  
 from datetime import timedelta
 from airflow import DAG
 from airflow.utils.dates import days_ago
@@ -23,7 +23,7 @@ with DAG(
     tags=["gold","routes"]
 ) as dag:
 
-    spark_submit_cmd = Variable.get("spark_submit_cmd", "/opt/bitnami/spark/bin/spark-submit")
+    spark_submit_cmd = Variable.get("spark_submit_cmd", "/opt/spark/bin/spark-submit")
     job_path = Variable.get("gold_routes_summary_job_path", "/opt/airflow/jobs/gold/gold_route_summary.py")
 
     minio_endpoint = Variable.get("MINIO_ENDPOINT", "http://minio:9000")
@@ -38,7 +38,7 @@ with DAG(
     catalog_db = Variable.get("catalog_db", "smartlogistics")
     catalog_table = Variable.get("catalog_table_routes_summary", "routes_summary")
 
-    # packages (Delta) — if your spark-submit/container cannot download packages, put the jar in $SPARK_HOME/jars instead
+    # packages (Delta) 
     delta_packages = "--packages io.delta:delta-core_2.12:2.4.0"
 
     # Spark confs for S3/MinIO and Hive Metastore
@@ -62,7 +62,7 @@ with DAG(
         f"--conf spark.delta.logStore.class=org.apache.spark.sql.delta.storage.S3SingleDriverLogStore "
     )
 
-    # Extra safety confs (optional, helpful in some MinIO envs)
+    # Extra safety confs
     extra_confs = (
         f"--conf spark.sql.warehouse.dir=/user/hive/warehouse "
     )
@@ -89,7 +89,6 @@ with DAG(
     env_vars = {
         "AWS_ACCESS_KEY_ID": minio_access,
         "AWS_SECRET_ACCESS_KEY": minio_secret,
-        # keep HIVE_METASTORE_URI too (if other parts use env)
         "HIVE_METASTORE_URI": metastore_uri,
         "PYSPARK_PYTHON": "/usr/local/bin/python3.12",
         "PYSPARK_DRIVER_PYTHON": "/usr/local/bin/python3.12",

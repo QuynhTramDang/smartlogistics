@@ -1,9 +1,4 @@
-"""
-DAG: gold_build_dim_warehouse
-Run Spark job jobs/gold/gold_dim_warehouse.py to build/upsert gold.dim_warehouse.
-
-Pattern follows your silver_geocode_addresses DAG (spark-submit via BashOperator).
-"""
+# dags/gold_dim_warehouse.py
 
 from datetime import timedelta
 from airflow import DAG
@@ -30,7 +25,7 @@ with DAG(
 ) as dag:
 
     # spark binary and job path
-    spark_submit_cmd = Variable.get("spark_submit_cmd", default_var="/opt/bitnami/spark/bin/spark-submit")
+    spark_submit_cmd = Variable.get("spark_submit_cmd", default_var="/opt/spark/bin/spark-submit")
     job_path = Variable.get(
         "gold_dim_warehouse_job_path",
         default_var="/opt/airflow/jobs/gold/gold_dim_warehouse.py",
@@ -42,7 +37,6 @@ with DAG(
     minio_secret = Variable.get("MINIO_SECRET_KEY", default_var="minioadmin")
     minio_ssl = Variable.get("MINIO_SSL", default_var="false")  # "true" or "false"
 
-    # Job-specific variables (can be set in Airflow UI)
     warehouse_order_path = Variable.get("warehouse_order_path", default_var="s3a://smart-logistics/silver/warehouse_order")
     warehouse_task_path = Variable.get("warehouse_task_path", default_var="s3a://smart-logistics/silver/warehouse_task")
     warehouse_map_csv = Variable.get("warehouse_map_csv", default_var="s3a://smart-logistics/reference/warehouse_location_map.csv")
@@ -53,7 +47,7 @@ with DAG(
     catalog_db = Variable.get("catalog_db", default_var="smartlogistics")
     catalog_table = Variable.get("catalog_table", default_var="dim_warehouse")
 
-    # Build spark-submit confs for s3a / minio (same style as geocode)
+    # Build spark-submit confs for s3a / minio 
     s3_confs = (
         f"--conf spark.hadoop.fs.s3a.endpoint={minio_endpoint} "
         f"--conf spark.hadoop.fs.s3a.access.key={minio_access} "
@@ -72,7 +66,7 @@ with DAG(
         f"--conf hive.metastore.uris={metastore_uri} "
     )
 
-    # Compose final spark-submit command
+   
     cmd = (
         f"{spark_submit_cmd} "
         "--master spark://spark-master:7077 "

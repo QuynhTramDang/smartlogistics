@@ -33,12 +33,12 @@ for state in "${!STATES[@]}"; do
   url="${BASE_URL}/${file}"
 
   if [ -f "$file" ]; then
-    echo "✅ File $file đã tồn tại, bỏ qua."
+    echo " File $file đã tồn tại, bỏ qua."
   else
-    echo "⬇️  Đang tải $file từ $url ..."
+    echo "  Đang tải $file từ $url ..."
     wget -q --show-progress "$url" -O "$file"
-    echo "✅ Đã tải xong: $file"
+    echo " Đã tải xong: $file"
   fi
 done
 
-echo "🎉 Hoàn tất. Các file .osm.pbf đã nằm trong thư mục osrm-data/"
+echo " Hoàn tất. Các file .osm.pbf đã nằm trong thư mục osrm-data/"

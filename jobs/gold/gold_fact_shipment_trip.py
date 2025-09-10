@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+# jobs/gold/gold_fact_shipment_trip.py
 """
 gold_fact_shipment_trip.py
 Build gold.fact_shipment_trip (trip-level) only.
@@ -20,7 +20,6 @@ import re
 
 from pyspark.sql import SparkSession, functions as F, Window
 
-# helpers from silver layer
 from silver_utils import init_spark, append_fact_table, register_hive_table, convert_odata_date
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -152,9 +151,6 @@ def build_trip_df(spark: SparkSession,
                        .withColumn("delivery_time_seconds", parse_time_seconds_expr(deliverytime_col))
 
     # create full timestamps using epoch arithmetic
-    # NOTE: if your source dates are timezone-specific and you *need* Asia/Bangkok semantics
-    # (like the SQL flow used date_trunc('day', odh.pickingdate AT TIME ZONE 'Asia/Bangkok')),
-    # you may need to adjust here using from_utc_timestamp/to_utc_timestamp depending on the source.
     odh_core = odh_core.withColumn("picking_epoch", F.unix_timestamp(F.col("picking_date_ts"))) \
                        .withColumn("picking_epoch", F.when(F.col("picking_epoch").isNotNull() & F.col("picking_time_seconds").isNotNull(),
                                                            F.col("picking_epoch") + F.col("picking_time_seconds")).otherwise(F.col("picking_epoch"))) \
@@ -190,7 +186,6 @@ def build_trip_df(spark: SparkSession,
         odh_oda_dl = odh_oda_dl.withColumn("origin_location_id_candidate", F.lit(None))
 
     # ---- prepare ddm_by_origin (origin-only join) ----
-    # select and canonicalize ddm columns (safe even if extra cols present)
     ddm_std = ddm.select(
         F.col(ddm_origin_col).alias("origin_location_id"),
         F.col(ddm_dest_col).alias("dest_location_id"),
@@ -202,7 +197,7 @@ def build_trip_df(spark: SparkSession,
     w_ddm = Window.partitionBy("origin_location_id", "dest_location_id").orderBy(F.col("network_duration_min").asc_nulls_last())
     ddm_by_origin = ddm_std.withColumn("_rn", F.row_number().over(w_ddm)).filter(F.col("_rn") == 1).drop("_rn")
 
-    # ---- join: origin-only (match ddm.origin_location_id == dl_location_id) (SQL flow used origin-only) ----
+    # ---- join: origin-only (match ddm.origin_location_id == dl_location_id) ----
     trip_with_ddm = odh_oda_dl.alias("t").join(
         ddm_by_origin.alias("ddm"),
         F.col("ddm.origin_location_id") == F.col("t.dl_location_id"),
@@ -264,8 +259,6 @@ def build_trip_df(spark: SparkSession,
     )
 
     # Filter rows to match view_trino_trip_df semantics:
-    # WHERE COALESCE(matched_origin_location_id, '') <> '' AND matched_dest_location_id IS NOT NULL
-    # Because we coalesced matched_origin and candidate into origin_location_id, we check origin <> '' and dest not null.
     fact = fact.filter(
         (F.coalesce(F.col("origin_location_id"), F.lit("")) != "") &
         (F.col("dest_location_id").isNotNull())

@@ -1,12 +1,7 @@
-#!/usr/bin/env python3
+# jobs/gold/gold_route_summary.py
 """
-gold_route_summary.py -- robust variant with explicit anti-ambiguous joins + fallbacks
+gold_route_summary.py 
 
-Changes:
- - extra logging after load/join/mapping steps for easier troubleshooting
- - fallback string-normalized join when numeric join coverage is poor
- - write routes_summary to delta path AND register table (catalog) when possible
- - write routes_summary_dq directly to catalog (Hive) when possible; fallback to path when not
 """
 from __future__ import annotations
 import argparse
@@ -17,7 +12,7 @@ from datetime import datetime, timezone
 
 from pyspark.sql import SparkSession, functions as F, types as T
 
-# Delta API optional (we don't require it to import successfully here; create_spark_session sets conf)
+# Delta API 
 try:
     from delta.tables import DeltaTable  # type: ignore
     DELTA_AVAILABLE = True
@@ -639,8 +634,7 @@ def main(args):
         else:
             log.info("Best-effort registration skipped/failed; routes_summary written to path only.")
 
-        # Also attempt to ensure a managed/registered table exists and is in sync:
-        # If metastore available and not path-only, we try to create an external table pointing to out_path as above.
+      
     except Exception as e:
         log.exception("Failed to write/merge routes_summary: %s", e)
         spark.stop(); sys.exit(1)

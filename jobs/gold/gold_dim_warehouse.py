@@ -1,8 +1,7 @@
-#!/usr/bin/env python3
+# jobs/gold/gold_dim_warehouse.py
 """
-build_dim_warehouse.py (fixed)
+build_dim_warehouse.py 
 
-Replace the existing file with this version.
 """
 import argparse
 import logging
@@ -26,7 +25,6 @@ log = logging.getLogger("build_dim_warehouse")
 
 
 def build_spark(metastore_uri=None, s3_endpoint="http://minio:9000", s3_key=None, s3_secret=None):
-    # prefer environment variables when set
     s3_key = os.getenv("S3_KEY", s3_key)
     s3_secret = os.getenv("S3_SECRET", s3_secret)
     b = SparkSession.builder.appName("build_dim_warehouse") \
@@ -43,7 +41,6 @@ def build_spark(metastore_uri=None, s3_endpoint="http://minio:9000", s3_key=None
     if metastore_uri:
         b = b.config("hive.metastore.uris", metastore_uri)
 
-    # tuning defaults (user may override)
     b = b.config("spark.sql.shuffle.partitions", os.getenv("SPARK_SHUFFLE_PARTS", "200"))
 
     spark = b.getOrCreate()
@@ -500,7 +497,7 @@ def main(args):
             set_map = {c: f"s.{c}" for c in update_cols}
 
             (tgt.alias("t")
-                 .merge(F.table(staging_view).alias("s"), "t.warehouse_id = s.warehouse_id")
+                 .merge(spark.table(staging_view).alias("s"), "t.warehouse_id = s.warehouse_id")
                  .whenMatchedUpdate(set=set_map)
                  .whenNotMatchedInsertAll()
                  .execute())

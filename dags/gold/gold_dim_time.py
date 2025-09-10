@@ -1,7 +1,4 @@
-"""
-DAG: gold_dim_time
-Build gold.dim_time (daily) via spark-submit
-"""
+# dags/gold_dim_time.py
 from datetime import timedelta
 from airflow import DAG
 from airflow.utils.dates import days_ago
@@ -26,7 +23,7 @@ with DAG(
     tags=["gold", "dim", "time"],
 ) as dag:
 
-    spark_submit_cmd = Variable.get("spark_submit_cmd", "/opt/bitnami/spark/bin/spark-submit")
+    spark_submit_cmd = Variable.get("spark_submit_cmd", "/opt/spark/bin/spark-submit")
     job_path = Variable.get("gold_dim_time_job_path", "/opt/airflow/jobs/gold/gold_dim_time.py")
 
     minio_endpoint = Variable.get("MINIO_ENDPOINT", "http://minio:9000")
@@ -34,7 +31,6 @@ with DAG(
     minio_secret = Variable.get("MINIO_SECRET_KEY", "minioadmin")
     minio_ssl = Variable.get("MINIO_SSL", "false")
 
-    # default silver paths (comma-separated). adjust variables in Airflow if needed.
     silver_paths = Variable.get("gold_dim_time_silver_paths",
                                 default_var="s3a://smart-logistics/silver/outbound_delivery_header,s3a://smart-logistics/silver/sales_order,s3a://smart-logistics/silver/warehouse_order,s3a://smart-logistics/silver/warehouse_task")
 
@@ -58,7 +54,7 @@ with DAG(
         "--conf spark.sql.catalog.spark_catalog=org.apache.spark.sql.delta.catalog.DeltaCatalog "
         "--packages io.delta:delta-core_2.12:2.4.0,org.apache.hadoop:hadoop-aws:3.3.4 "
         f"{s3_confs} {metastore_conf} "
-        f"--py-files /opt/airflow/jobs/silver/silver_utils.py "   # <-- thêm dòng này
+        f"--py-files /opt/airflow/jobs/silver/silver_utils.py "   
         f"{job_path} "
         f"--silver_paths \"{silver_paths}\" "
         f"--gold_path {gold_path} "

@@ -61,7 +61,7 @@ def init_spark(app_name: str,
         .config("hive.metastore.uris", metastore_uri) \
         .enableHiveSupport() \
         .getOrCreate()
-    # keep legacy behavior for time parser if you need it
+    # keep legacy behavior for time parser 
     spark.conf.set("spark.sql.legacy.timeParserPolicy", "LEGACY")
     return spark
 def register_hive_table(spark: SparkSession, table_name: str, path: str):
@@ -131,14 +131,12 @@ def apply_and_format_data_quality(
     debug_log: bool = False
 ) -> Tuple[DataFrame, DataFrame]:
     """
-    Áp dụng các quy tắc kiểm tra chất lượng dữ liệu:
-    - "odata_date": parse string kiểu '/Date(...)' thành timestamp
-    - "numeric": cast sang double
-    - "non_negative": >= 0
-
-    Trả về:
-    - valid_df: các dòng pass tất cả rule
-    - reject_df: các dòng không pass, có thêm cột reject_reason chi tiết
+    Apply data quality rules to DataFrame.
+    Supported rules:
+    - "odata_date": convert OData date string to timestamp, valid if null or successfully parsed
+    - "numeric": convert to double, valid if null or successfully parsed
+    - "non_negative": valid if null or >= 0 (requires "numeric" rule to be applied first)
+    - "iso_date": convert ISO date string to timestamp, valid if null or successfully parsed
     """
 
     if not rules:
@@ -149,7 +147,7 @@ def apply_and_format_data_quality(
     all_conditions = []
     fail_conditions = []
 
-    # --------- 1. Tạo các cột tạm và điều kiện kiểm tra ---------
+    # --------- 1. Create temporary columns and validation conditions ---------
     for col_name, checks in rules.items():
         for rule in checks:
             parsed_col = f"{col_name}_parsed_{rule}"
@@ -177,9 +175,8 @@ def apply_and_format_data_quality(
 
             else:
                 logger.warning(f"[DQ] Unknown rule '{rule}' for column '{col_name}' skipped.")
-                continue  # bỏ qua rule không hợp lệ
+                continue  
 
-            # Lưu điều kiện và lý do fail nếu điều kiện sai
             all_conditions.append(condition)
             fail_conditions.append(
                 when(~condition, lit(f"{reject_reason_prefix}_{col_name}_{rule}")).otherwise(None)
@@ -188,19 +185,19 @@ def apply_and_format_data_quality(
     if not all_conditions:
         return transformed, transformed.sparkSession.createDataFrame([], df.schema)
 
-    # --------- 2. Gộp điều kiện pass/fail ---------
+    # --------- 2. Combine validation conditions ---------
     combined_condition = reduce(lambda a, b: a & b, all_conditions)
     fail_reason_array = array(*fail_conditions)
     filtered_fail_array = array_remove(fail_reason_array, None)
     transformed = transformed.withColumn("reject_reasons", filtered_fail_array)
 
-    # --------- 3. Chia valid / reject ---------
+    # --------- 3. Split valid / reject ---------
     valid_df = transformed.filter(combined_condition)
     reject_df = transformed.filter(~combined_condition).withColumn(
         "reject_reason", concat_ws(",", col("reject_reasons"))
     )
 
-    # --------- 4. Clean: thay thế và drop cột tạm ---------
+    # --------- 4. Clean: replace and drop temporary columns ---------
     for (col_name, _), parsed_col in parsed_cols.items():
         if parsed_col in valid_df.columns:
             valid_df = valid_df.withColumn(col_name, col(parsed_col)).drop(parsed_col)
@@ -253,22 +250,12 @@ def upsert_scd2_table(
     partition_by: List[str] = None
 ):
     """
-    Upsert SCD2 table chuẩn với start_date, end_date, is_current.
-
-    Args:
-        spark: SparkSession
-        df: DataFrame chứa dữ liệu mới (chưa có các cột SCD)
-        path: path Delta table
-        key_cols: list cột key dùng để join bản ghi cũ - mới
-        scd_cols: list cột thuộc dữ liệu cần track thay đổi (so sánh detect thay đổi)
-        batch_id: id batch ingest
-        job_name: tên job / bảng trong Hive
-        partition_by: partition columns khi tạo bảng mới (optional)
+    Upsert into SCD2 dimension table at given path.
     """
 
     ingest_date = to_date(current_timestamp())
 
-    # Thêm cột ingest info và giá trị mặc định SCD
+    # Add ingest info columns with default SCD values
     new_df = df.withColumn("ingest_batch_id", lit(batch_id)) \
                .withColumn("ingest_timestamp", current_timestamp()) \
                .withColumn("record_date", ingest_date) \
@@ -280,22 +267,22 @@ def upsert_scd2_table(
     try:
         delta = DeltaTable.forPath(spark, path)
 
-        # Cond join theo key
+        # Cond for matching records based on key columns
         cond = " AND ".join([f"target.{k} = source.{k}" for k in key_cols])
 
-        # Xác định thay đổi: so sánh giá trị các cột scd_cols giữa target và source
+        # Identify changes: compare values of scd_cols between target and source
         changes_cond = " OR ".join([
             f"(target.{col} <=> source.{col}) = false"
             for col in scd_cols
         ])
 
-        # Khi matched và is_current = True và có thay đổi -> đóng bản ghi cũ
+        # Update old records to set is_current = false and end_date
         update_old = {
             "end_date": expr("source.record_date - INTERVAL 1 DAY"),
             "is_current": lit(False)
         }
 
-        # Insert bản ghi mới
+        # Insert new records
         insert_new = {c: f"source.{c}" for c in new_df.columns}
 
         delta.alias("target").merge(new_df.alias("source"), cond) \
@@ -306,22 +293,18 @@ def upsert_scd2_table(
             .whenNotMatchedInsert(values=insert_new) \
             .execute()
 
-        # Sau khi đóng bản ghi cũ, insert bản ghi mới (lần nữa) để giữ bản mới nhất is_current = true
-        # Thao tác này làm 2 bước, insert bản mới hoặc có thể thực hiện merge lại với điều kiện is_current = false
-
-        # Cách 1: Merge lại insert thêm bản mới (thường dùng)
+        # If no match, insert new record
         delta.alias("target").merge(new_df.alias("source"), cond) \
             .whenNotMatchedInsert(values=insert_new) \
             .execute()
 
     except Exception as e:
-        # Nếu bảng chưa tồn tại, tạo mới với partition nếu có
         writer = new_df.write.format("delta").mode("overwrite")
         if partition_by:
             writer = writer.partitionBy(*partition_by)
         writer.save(path)
 
-        # Đăng ký table Hive
+        # Register table in Hive metastore
         register_hive_table(spark, f"smartlogistics.{job_name}", path)
 
 # ---------------- Rejects + Logging ----------------

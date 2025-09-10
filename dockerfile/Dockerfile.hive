@@ -1,12 +1,12 @@
+# dockerfile/Dockerfile.hive
 FROM apache/hive:3.1.3
-
 USER root
 
-# Tải jar vào thư mục tạm (không cần chmod)
+# Download hadoop-aws and aws-java-sdk-bundle
 ADD https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.2/hadoop-aws-3.1.2.jar /tmp/
 ADD https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.375/aws-java-sdk-bundle-1.11.375.jar /tmp/
 
-# Move vào /opt/hive/lib (Docker giữ nguyên quyền)
+# Move to /opt/hive/lib 
 RUN mv /tmp/hadoop-aws-3.1.2.jar /opt/hive/lib/ && \
     mv /tmp/aws-java-sdk-bundle-1.11.375.jar /opt/hive/lib/
 

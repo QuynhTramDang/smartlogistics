@@ -9,3 +9,13 @@ trino-data/
 venv/
 .env
 derby.log
+airflow/
+airflow.cfg
+airflow-scheduler
+Check
+Configuring
+Launching
+Running
+Starting
+trino-cli
+User

@@ -1,4 +1,4 @@
-
+# dags/silver_outbound_delivery.py
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
@@ -6,7 +6,7 @@ import logging
 import sys
 
 
-# Thêm đường dẫn để airflow có thể import module
+# Add path to job scripts
 sys.path.insert(0, "/opt/airflow/jobs")
 
 

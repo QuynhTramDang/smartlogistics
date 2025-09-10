@@ -1,8 +1,4 @@
-"""
-DAG: silver_geocode_addresses
-Geocode silver/outbound_delivery_address -> gold.dim_location
-Uses spark-submit via BashOperator and passes MinIO / s3a confs.
-"""
+# dags/gold_dim_location.py
 
 
 from datetime import timedelta
@@ -32,14 +28,12 @@ with DAG(
 ) as dag:
 
 
-    # spark binary and job path
-    spark_submit_cmd = Variable.get("spark_submit_cmd", default_var="/opt/bitnami/spark/bin/spark-submit")
+
+    spark_submit_cmd = Variable.get("spark_submit_cmd", default_var="/opt/spark/bin/spark-submit")
     job_path = Variable.get(
         "geocode_job_path",
         default_var="/opt/airflow/jobs/gold/gold_dim_location.py",
     )
-    # we removed pyfiles usage because dependencies are baked into images
-    # pyfiles = Variable.get("geocode_pyfiles", default_var="/opt/airflow/deps.zip")
 
 
     # S3 / MinIO variables
@@ -65,10 +59,8 @@ with DAG(
         f"--conf spark.hadoop.fs.s3a.connection.ssl.enabled={minio_ssl} "
         f"--conf spark.hadoop.fs.s3a.impl=org.apache.hadoop.fs.s3a.S3AFileSystem "
         f"--conf spark.hadoop.fs.s3a.aws.credentials.provider=org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider "
-        # ensure executors see AWS keys too (only needed in cluster mode)
         f"--conf spark.executorEnv.AWS_ACCESS_KEY_ID={minio_access} "
         f"--conf spark.executorEnv.AWS_SECRET_ACCESS_KEY={minio_secret} "
-        # ensure executors use the same Python binary (adjust path to your worker image)
         f"--conf spark.executorEnv.PYSPARK_PYTHON=/usr/local/bin/python3.12 "
     )
     metastore_uri = Variable.get("HIVE_METASTORE_URI", default_var="thrift://delta-metastore:9083")
@@ -85,7 +77,6 @@ with DAG(
         "--packages io.delta:delta-core_2.12:2.4.0 "
         f"{s3_confs} "
         f"{metastore_conf} "
-        # no --py-files here because dependencies are installed in the image
         f"{job_path} "
         f"--silver_path {silver_path} "
         f"--cache_path {cache_path} "
@@ -99,7 +90,6 @@ with DAG(
     env_vars = {
         "AWS_ACCESS_KEY_ID": minio_access,
         "AWS_SECRET_ACCESS_KEY": minio_secret,
-        # adjust the path to python in the image you built
         "HIVE_METASTORE_URI": metastore_uri,
         "PYSPARK_PYTHON": "/usr/local/bin/python3.12",
         "PYSPARK_DRIVER_PYTHON": "/usr/local/bin/python3.12",

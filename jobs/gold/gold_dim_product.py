@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
+# jobs/gold/gold_dim_product.py
 """
 gold_dim_product.py
 Build gold.dim_product (SCD2) from silver.sales_order_item + silver.outbound_delivery_item
 
-Uses helper functions from silver_utils: init_spark, upsert_scd2_table, register_hive_table
 """
 import argparse
 import logging
@@ -100,7 +99,7 @@ def build_product_df(spark: SparkSession, so_path: str, odi_path: str) -> DataFr
 
 
 def main(args):
-    # init spark via helper in silver_utils (passes metastore_uri through)
+    # init spark via helper in silver_utils 
     spark = init_spark(
         app_name="gold_dim_product",
         minio_endpoint=args.s3_endpoint,
@@ -126,7 +125,7 @@ def main(args):
 
     target_path = f"{gold_path}/dim_product"
 
-    # --- upsert SCD2 (this writes Delta files to target_path) ---
+    # --- upsert SCD2  ---
     upsert_scd2_table(
         spark=spark,
         df=df_prod,

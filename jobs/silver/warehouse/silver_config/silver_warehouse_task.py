@@ -3,6 +3,7 @@
 from pyspark.sql.types import StructType, StructField, StringType, BooleanType, IntegerType, DoubleType, ArrayType, DecimalType
 from silver.common import make_raw_path, DELTA_BASE, REJECT_BASE, LOGGING_BASE, MARKER_BASE
 
+#  WAREHOUSE_TASK
 WAREHOUSE_TASK_CONFIG = {
     "job_name": "warehouse_task",
     "raw_path": make_raw_path("warehouse_task"),

@@ -1,7 +1,7 @@
-#!/usr/bin/env python3
+# jobs/gold/gold_dim_location.py
 """
 geocode_addresses_spark.py
-(…header như bạn có…)
+
 """
 import argparse
 import time
@@ -15,7 +15,6 @@ import logging
 
 from pyspark.sql import SparkSession, functions as F, types as T
 
-# We'll do the actual geocoding on the driver using geopy + pandas
 import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
@@ -51,7 +50,7 @@ def main(args):
     spark = (
         SparkSession.builder
         .appName("geocode_addresses")
-        # S3 / MinIO (thay bằng endpoint/keys của bạn nếu khác)
+        # S3 / MinIO 
         .config("spark.hadoop.fs.s3a.endpoint", args.s3_endpoint)
         .config("spark.hadoop.fs.s3a.access.key", args.s3_key)
         .config("spark.hadoop.fs.s3a.secret.key", args.s3_secret)
@@ -59,7 +58,7 @@ def main(args):
         # Delta + catalog
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
         .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog")
-        # Use Hive metastore for persistent metadata (VERY IMPORTANT)
+        # Use Hive metastore for persistent metadata 
         .config("spark.sql.catalogImplementation", "hive")
         .config("hive.metastore.uris", args.metastore_uri if args.metastore_uri else "thrift://delta-metastore:9083")
         .enableHiveSupport()
@@ -70,7 +69,7 @@ def main(args):
 
     silver_path = args.silver_path.rstrip('/')
     cache_path = args.cache_path
-    gold_path = args.gold_path.rstrip('/')   # <-- now gold_path is folder (no .parquet)
+    gold_path = args.gold_path.rstrip('/')  
     top_n = int(args.top_n)
     nominatim_delay = float(args.rate_limit)
 
@@ -83,7 +82,7 @@ def main(args):
         spark.stop()
         sys.exit(1)
 
-    # detect columns (same as before) ...
+    # detect columns 
     street_col = pick_first_col(df_silver.columns, ['StreetName','streetname','street_name','street','street_name1'])
     houseno_col = pick_first_col(df_silver.columns, ['HouseNumber','housenumber','house_number','houseno'])
     city_col = pick_first_col(df_silver.columns, ['CityName','cityname','city','city_name'])
@@ -221,12 +220,11 @@ def main(args):
                      ).withColumn('published_at', F.current_timestamp())
 
     # --- ADD an explicit ASCII-normalized column (addr_norm_ascii) to make joins stable across jobs ---
-    # Because addr_norm was created via unidecode on the driver, we keep a copy named addr_norm_ascii
     dim = dim.withColumn("addr_norm_ascii", F.coalesce(F.col("addr_norm"), F.lit("")))
 
     # --- WRITE DELTA (no .parquet suffix) ---
     gold_dir = gold_path
-    gold_out_path = gold_dir + "/dim_location"   # folder path for delta
+    gold_out_path = gold_dir + "/dim_location"  
     log.info("Writing dim_location (DELTA) to %s", gold_out_path)
 
     # write delta files
@@ -240,14 +238,15 @@ def main(args):
     log.info("Ensuring database %s exists in catalog", catalog_db)
     spark.sql(f"CREATE DATABASE IF NOT EXISTS {catalog_db}")
 
-    # If table exists already, drop metadata first (this avoids CREATE OR REPLACE WITH NO SCHEMA error)
+    # If table exists already, drop metadata first (to avoid conflicts)
     if spark.catalog.tableExists(catalog_db, catalog_table):
         log.info("Table %s exists in catalog — dropping metadata to re-register", full_table)
         spark.sql(f"DROP TABLE {full_table}")
 
     # create table metadata pointing to the delta location
     log.info("Creating catalog table %s USING DELTA LOCATION '%s'", full_table, gold_out_path)
-    spark.sql(f"CREATE TABLE {full_table} USING DELTA LOCATION '{gold_out_path}'")
+    spark.sql(f"CREATE TABLE IF NOT EXISTS {full_table} USING DELTA LOCATION '{gold_out_path}'")
+
 
     # summary / DQ
     total_addresses = df_nonblank.count()

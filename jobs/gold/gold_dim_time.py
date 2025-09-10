@@ -1,14 +1,8 @@
-#!/usr/bin/env python3
+# jobs/gold/gold_dim_time.py
 """
 gold_dim_time.py
 Build gold.dim_time (daily grain) from timestamps found in silver tables.
 
-Behavior:
- - Read listed silver delta paths (can pass many)
- - Auto-discover common date/datetime columns (by name hints)
- - Compute min_date / max_date (date only)
- - Generate daily calendar rows between min_date and max_date inclusive
- - Write DELTA to <gold_path>/dim_time (overwrite) and register as smartlogistics.dim_time
 """
 import argparse
 import logging
@@ -41,7 +35,6 @@ def pick_date_cols(cols):
         for i, c in enumerate(lc):
             if cand in c and cols[i] not in picked:
                 picked.append(cols[i])
-    # also include explicit names that are very common
     extras = ["creationdate", "deliverydate", "pickingdate", "proofofdeliverydate", "salesorderdate"]
     for ex in extras:
         for i, c in enumerate(lc):
@@ -62,11 +55,6 @@ def safe_read_delta(spark: SparkSession, path: str):
 
 
 def extract_dates_from_df(df):
-    """
-    From a dataframe, find candidate date/time columns and return a single column
-    of timestamps (nullable) containing all values from those columns (union via array -> explode).
-    We filter out obviously-bad years (year < 1900) to avoid Python datetime limitations.
-    """
     if df is None:
         return None
 
@@ -75,7 +63,7 @@ def extract_dates_from_df(df):
     if not date_cols:
         return None
 
-    # cast each candidate column to timestamp (safe)
+    # cast each candidate column to timestamp 
     ts_exprs = []
     for c in date_cols:
         ts_exprs.append(F.to_timestamp(F.col(c)).alias(c + "_ts"))
@@ -101,11 +89,6 @@ def extract_dates_from_df(df):
 
 
 def compute_global_min_max(spark: SparkSession, silver_paths):
-    """
-    For each provided path, attempt to read and extract timestamp values.
-    Return (min_date, max_date) as date (yyyy-mm-dd).
-    Uses unix_timestamp aggregation to avoid Timestamp -> Python conversion issues.
-    """
     all_ts = None
     for p in silver_paths:
         df = safe_read_delta(spark, p)
@@ -214,7 +197,6 @@ def main(args):
     min_date, max_date = compute_global_min_max(spark, silver_paths)
 
     if min_date is None or max_date is None:
-        # fallback: last 3 years to +1 month
         today = datetime.utcnow().date()
         min_date = today - timedelta(days=365*3)
         max_date = today + timedelta(days=31)
@@ -222,8 +204,7 @@ def main(args):
     else:
         log.info("Discovered date range: %s -> %s", min_date, max_date)
 
-    # safety: cap span to reasonable limit (e.g., 10 years) to avoid accidental huge range
-    max_span_days = 3650  # 10 years
+    max_span_days = 3650 
     span = (max_date - min_date).days
     if span > max_span_days:
         log.warning("Date range too large (%d days). Truncating to %d days ending %s", span, max_span_days, max_date)
@@ -232,7 +213,7 @@ def main(args):
     cal_df = build_calendar_df(spark, min_date, max_date)
     log.info("Built calendar rows=%d", cal_df.count())
 
-    # write delta overwrite (dim table is usually overwritten)
+    # write delta overwrite 
     log.info("Writing dim_time (DELTA) to %s", target_path)
     cal_df.write.format("delta").mode("overwrite").option("overwriteSchema", "true").save(target_path)
 
@@ -250,7 +231,7 @@ def main(args):
             log.warning("Dropping table %s failed: %s", full_table, e)
 
     log.info("Creating catalog table %s USING DELTA LOCATION '%s'", full_table, target_path)
-    spark.sql(f"CREATE TABLE {full_table} USING DELTA LOCATION '{target_path}'")
+    spark.sql(f"CREATE TABLE IF NOT EXISTS {full_table} USING DELTA LOCATION '{target_path}'")
 
     log.info("dim_time job complete.")
     spark.stop()
