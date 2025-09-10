@@ -1,5 +1,35 @@
 
+# Smart Logistics
+## Table of Contents
 
+- [A. Project Objective](#a-project-objective)  
+  - [Key Outcomes](#key-outcomes)  
+    - [1. Route and Network Optimization](#1-route-and-network-optimization)  
+    - [2. Logistics Performance Analysis (KPI & Reporting)](#2-logistics-performance-analysis-kpi--reporting)  
+
+- [B. Dataset Selection](#b-dataset-selection)  
+  - [1. SAP APIs (SalesOrder, OutboundDelivery, WarehouseOrder)](#1-sap-apis-salesorder-outbounddelivery-warehouseorder)  
+  - [2. OSRM Dataset](#2-osrm-dataset)  
+
+- [C. System Architecture](#c-system-architecture)  
+  - [1. System Overview](#1-system-overview)  
+  - [2. Data Processing (Bronze / Silver / Gold)](#2-data-processing-bronze--silver--gold)  
+
+- [D. Deployment](#d-deployment)  
+  - [1. System Requirements](#1-system-requirements)  
+  - [2. Deployment Steps](#2-deployment-steps)  
+  - [3. Connections & User Interfaces](#3-connections--user-interfaces)  
+  - [4. Visualization & Dashboards](#4-visualization--dashboards)  
+  - [5. Monitoring & Alerting](#5-monitoring--alerting)  
+
+- [E. Results](#e-results)  
+  - [Dashboard with Metabase](#dashboard-with-metabase)  
+  - [Monitoring with Grafana](#monitoring-with-grafana)  
+  - [Monitoring Airflow](#monitoring-airflow)  
+  - [Monitoring Spark](#monitoring-spark)  
+  - [Monitoring Node-Noporter](#monitoring-node-noporter)  
+
+- [Author](#author)  
 
 ## A. Project Objective
 
@@ -72,6 +102,10 @@ The Data Lakehouse architecture in this project is carefully designed to support
 ### 1. System Overview
 
 The architecture consists of the following key components:
+
+<img width="1753" height="1105" alt="image" src="https://github.com/user-attachments/assets/7cdacdab-2706-4d91-9b7d-231c1446825e" />
+
+
 
 #### **Data Ingestion Layer**
 
@@ -225,7 +259,6 @@ Here’s a professional English rewrite of your **D. Deployment** section, tailo
    * Trigger a sample ingestion DAG.
    * Verify output in MinIO (Bronze bucket) and check Spark logs for Silver/Delta dataset creation.
 
----
 
 ### 3. Connections & User Interfaces (Quick Reference)
 
@@ -250,16 +283,12 @@ Here’s a professional English rewrite of your **D. Deployment** section, tailo
 * Port: `8080`
 * Catalog: `hive`
 
----
-
 ### 4. Visualization & Dashboards
 
 * Build and publish core dashboards:
 
   * **`routes_summary`**
   * **`kpi_logistics_monthly`**
-
----
 
 ### 5. Monitoring & Alerting
 
@@ -278,4 +307,41 @@ Here’s a professional English rewrite of your **D. Deployment** section, tailo
   * Service downtime alerts for Spark, OSRM, or ClickHouse
 
 
+## E. Results
+
+### Dashboard with Metabase
+  A set of interactive dashboards was built in **Metabase**, enabling stakeholders to explore KPIs, time-series trends, and drill-down insights across sales, delivery, and warehouse operations.
+
+<img width="1561" height="1333" alt="image" src="https://github.com/user-attachments/assets/bc5dac4c-1b27-499b-abe7-f7a44b9ff122" />
+
+
+<img width="1448" height="1276" alt="image" src="https://github.com/user-attachments/assets/5a51d06d-fc4d-4db2-9861-0eab5658d15f" />
+
+
+### Monitoring with Grafana
+  **Grafana** was integrated with Prometheus to provide real-time monitoring of system and pipeline metrics, including SLA adherence, job success/failure rates, throughput, and latency.
+
+* **Monitoring Airflow**
+  A dedicated **Airflow monitoring dashboard** allows visualization and tracking of DAG execution, task retries, and workflow health, ensuring orchestration reliability.
+<img width="2480" height="1327" alt="image" src="https://github.com/user-attachments/assets/96a5f906-10a8-4b40-9869-2c370a0fba3e" />
+
+
+* **Monitoring Spark**
+  **Apache Spark job monitoring** was implemented to track performance, resource utilization, and system health, supporting efficient batch and transformation processing.
+<img width="2473" height="1101" alt="image" src="https://github.com/user-attachments/assets/49d774a3-820e-42b4-ae27-6352d9ec47e9" />
+
+
+* **Monitoring Node-Noporter**
+  A monitoring module was designed for **Node-Noporter** to capture service availability, request throughput, and latency, ensuring the reliability of API-based integrations.
+<img width="2473" height="1335" alt="image" src="https://github.com/user-attachments/assets/11d5da83-476a-4125-befd-00e975a2cff2" />
+
+---
+
+## Author  
+
+**Dang Nguyen Quynh Tram**  
+
+📧 Email: [quynhtramdang.ueh@gmail.com](mailto:quynhtramdang.ueh@gmail.com)  
+🔗 LinkedIn: [linkedin.com/in/tramdang311](https://www.linkedin.com/in/tramdang311)  
+💻 GitHub: [github.com/QuynhTramDang](https://github.com/QuynhTramDang)  
 
