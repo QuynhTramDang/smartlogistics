@@ -3,8 +3,6 @@
 from pyspark.sql.types import StructType, StructField, StringType, ArrayType, BooleanType
 from silver.common import make_raw_path, DELTA_BASE, REJECT_BASE, LOGGING_BASE, MARKER_BASE
 
-
-
 #  SALES_ORDER_ITEM (A_SalesOrderItem)
 SALES_ORDER_ITEM_CONFIG = {
     "job_name": "sales_order_item",
