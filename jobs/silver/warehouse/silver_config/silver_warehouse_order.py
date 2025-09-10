@@ -1,4 +1,5 @@
 # silver_config/silver_warehouse_order.py
+
 from pyspark.sql.types import StructType, StructField, StringType, BooleanType, IntegerType, TimestampType, ArrayType, DecimalType
 from silver.common import make_raw_path, DELTA_BASE, REJECT_BASE, LOGGING_BASE, MARKER_BASE
 
