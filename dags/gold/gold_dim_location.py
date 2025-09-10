@@ -1,6 +1,5 @@
 # dags/gold_dim_location.py
 
-
 from datetime import timedelta
 from airflow import DAG
 from airflow.utils.dates import days_ago
